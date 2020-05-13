@@ -32,13 +32,19 @@ void explicitSolver(bool stop_when_static = true) {
     for (; fr < 200; fr++) {
         for (auto& vertex : mesh.vertices) {
             vertex.x += vertex.v * dt;
-            vertex.v += kG * dt;// - kAirdrag * vertex.v * dt;
+            //vertex.v += kG * dt;// - kAirdrag * vertex.v * dt;
+            vertex.f = vertex.m * kG;
         }
         for (const auto& e : mesh.edges) {
             Vec3 x01 = mesh.vertices[e.x1].x - mesh.vertices[e.x0].x;
             double len = x01.norm();
-            mesh.vertices[e.x0].v += 1./mesh.vertices[e.x0].m * kStiffness * (len - e.len) * x01 * dt; 
-            mesh.vertices[e.x1].v -= 1./mesh.vertices[e.x1].m * kStiffness * (len - e.len) * x01 * dt; 
+            //mesh.vertices[e.x0].v += 1./mesh.vertices[e.x0].m * kStiffness * (len - e.len) * x01 * dt; 
+            //mesh.vertices[e.x1].v -= 1./mesh.vertices[e.x1].m * kStiffness * (len - e.len) * x01 * dt; 
+            mesh.vertices[e.x0].f += kStiffness * (len - e.len) * x01; 
+            mesh.vertices[e.x1].f -= kStiffness * (len - e.len) * x01; 
+        }
+        for (auto& vertex : mesh.vertices) {
+            vertex.v += vertex.f / vertex.m * dt;// - kAirdrag * vertex.v * dt;
         }
         mesh.vertices[0].v = Vec3::Zero(); 
         mesh.vertices[4].v = Vec3::Zero();
