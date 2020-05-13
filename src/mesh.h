@@ -16,7 +16,7 @@ struct Vertex {
     int index;
     double m;
     Eigen::Vector2i coord;
-    Vec3 x, v, n;
+    Vec3 x, v, n, f;
 };
 
 struct Edge {

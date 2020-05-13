@@ -9,9 +9,9 @@ using Vec3 = Eigen::Vector3d;
 int N = 5;
 
 int main(int argc, char *argv[]) {
-    std::string path = std::string(argv[1]) + "/mesh";
+    std::string path = std::string(argv[1]) + "/mesh_init";
     std::ofstream fout(path, std::ios::out);
-    fout << 500 << std::endl << N * N << std::endl;
+    fout << 1000 << std::endl << N * N << std::endl;
     for (int i = 0; i < N; i++)
         for (int j = 0; j < N; j++) {
             fout << i << ' ' << j << ' ';
