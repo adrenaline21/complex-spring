@@ -241,18 +241,21 @@ void MeshT<T_VAL>::Descent(T_VAL kStiffness, VecXT& x) {
     grad.resize(3 * N);
     grad.setZero();
     EvalGradient(kStiffness, grad, x, y);
+    double obj = EvalObjective(kStiffness, x, y);
     std::cout << grad.transpose() << std::endl;
-    std::cout << EvalObjective(kStiffness, x, y);
+    for (int i = 0; i < 3 * N; i++) {
+        VecXT newx = x; newx(i) = x(i) + 1e-4
+        std::cout << EvalObjective(kStiffness, newx, y) - obj << ' ';
+    }
+    std::cout << std::endl;
     
     int ite = 0;
     double kB = 0.5, kY = 0.03;
     //VecXT new_grad; new_grad.resize(3 * N);
     for (; ite < 10; ite++) {
         double obj = EvalObjective(kStiffness, x, y);
-        std::cout << obj << ' ';
         EvalGradient(kStiffness, grad, x, y);
         double norm = grad.norm();
-        std::cout << norm << "    ";
         if (norm < 1e-2)
             break;
         double kA = 1./kB; VecXT xTemp = x;
