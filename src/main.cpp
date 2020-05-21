@@ -4,14 +4,16 @@
 #include "CFD.h"
 
 std::string path;
-MeshR mesh;
+MeshR meshR;
+MeshC meshC;
 MeshT<std::complex<double>> meshc;
 
 int main(int argc, char *argv[]) {
     path = std::string(argv[1]);
-    mesh.path = path;
-    mesh.GenerateLossFrame(5);
-    std::cout << mesh.EvalLossSameFrame(6) << std::endl;
+    meshR.path = path; meshC.path = path;
+    meshR.GenerateLossFrame(5);
+    std::cout << meshR.EvalLossSameFrame(6) << std::endl;
+    std::cout << meshR.EvalLossSameFrame(std::complex<double>(5, 0.1)) << std::endl;
     /*
     for (double kStiffness = 1; kStiffness < 10; kStiffness += 0.5) {
         double loss;

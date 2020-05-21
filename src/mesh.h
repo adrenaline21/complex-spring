@@ -46,12 +46,13 @@ struct MeshT {
     void Write(std::ofstream&);
 
     int compared_frame = 100;
-    void ExplicitAdvance(double dt, double kStiffness);
+    void ExplicitAdvance(double dt, T_VAL kStiffness);
 
-    T_VAL EvalLossSameFrame(double kStiffness);
+    T_VAL EvalLossSameFrame(T_VAL kStiffness);
     double EvalStatic();
 };
 
+using MeshC = MeshT<std::complex<double>>;
 struct MeshR : MeshT<double> {
     using Vertex = VertexT<double>;
 
