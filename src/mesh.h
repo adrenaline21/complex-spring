@@ -180,8 +180,8 @@ void MeshT<T_VAL>::EvalGradient(T_VAL kStiffness, VecXT& grad, const VecXT& X, c
     for (const auto& e : edges) {
         Vec3T x01 = x[e.x1] - x[e.x0];
         T_VAL len = std::sqrt(x01(0) * x01(0) + x01(1) * x01(1) + x01(2) * x01(2));
-        f[e.x0] -= kStiffness * (len - e.len) * x01 / len * dt; 
-        f[e.x1] += kStiffness * (len - e.len) * x01 / len * dt;
+        f[e.x0] -= kStiffness * (len - e.len) * x01 / len; 
+        f[e.x1] += kStiffness * (len - e.len) * x01 / len;
     }
     // Adding to x - y
     VecXT xy = X - y;
@@ -240,14 +240,15 @@ void MeshT<T_VAL>::Descent(T_VAL kStiffness, VecXT& x) {
     VecXT grad;
     grad.resize(3 * N);
     grad.setZero();
+    /*
     EvalGradient(kStiffness, grad, x, y);
-    double obj = EvalObjective(kStiffness, x, y);
     std::cout << grad.transpose() << std::endl;
     for (int i = 0; i < 3 * N; i++) {
-        VecXT newx = x; newx(i) = x(i) + 1e-4
-        std::cout << EvalObjective(kStiffness, newx, y) - obj << ' ';
+        VecXT xp = x, xn = x; xp(i) = x(i) + 1e-4; xn(i) = x(i) - 1e-4;
+        std::cout << (EvalObjective(kStiffness, xp, y) - EvalObjective(kStiffness, xn, y)) / 2e-4 << ' ';
     }
     std::cout << std::endl;
+    */
     
     int ite = 0;
     double kB = 0.5, kY = 0.03;
@@ -256,7 +257,8 @@ void MeshT<T_VAL>::Descent(T_VAL kStiffness, VecXT& x) {
         double obj = EvalObjective(kStiffness, x, y);
         EvalGradient(kStiffness, grad, x, y);
         double norm = grad.norm();
-        if (norm < 1e-2)
+        std::cout << obj << ' ' << norm << "    ";
+        if (norm < 1e-4)
             break;
         double kA = 1./kB; VecXT xTemp = x;
         do {
@@ -265,9 +267,9 @@ void MeshT<T_VAL>::Descent(T_VAL kStiffness, VecXT& x) {
             //EvalGradient(kStiffness, new_grad, xTemp, y);
             //std::cout << evalObjective(xTemp, y) << ' ';
         } while (EvalObjective(kStiffness, xTemp, y) > obj - kY * kA * norm * norm);
-        std::cout << std::endl;
         x = xTemp;
     }
+    std::cout << std::endl;
 }
 
 template<class T_VAL>
