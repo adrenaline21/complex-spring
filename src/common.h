@@ -5,6 +5,6 @@
 #include <Eigen/Core>
 
 template <class T_VAL> using Array = std::vector<T_VAL>;
-using Vec3 = Eigen::Vector3f;
+using Vec3 = Eigen::Vector3d;
 
 #endif

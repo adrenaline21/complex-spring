@@ -37,7 +37,7 @@ float deltaTime = 0.0f;
 float lastFrame = 0;
 double frame = 0;
 
-Mesh mesh;
+MeshR mesh;
 void InitViewer() {
     Vec3 sum = Vec3::Zero();
     double xmax = -INT_MAX, xmin = INT_MAX;
@@ -177,8 +177,8 @@ int main(int argc, char *argv[]) {
     glEnable(GL_DEPTH_TEST);
 
     Shader shader(shader_path + "shader.vs", shader_path + "shader.fs");
-    std::ifstream mesh_file(data_path + "/mesh", std::ios::in);
-    mesh.Init(mesh_file);
+    mesh.path = data_path;
+    mesh.Init();
     InitViewer();
     mesh.SetUpOpenGl();
 
@@ -194,8 +194,7 @@ int main(int argc, char *argv[]) {
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);		
 
         int fr = int(frame);
-        std::ifstream frame_file(data_path + std::to_string(fr), std::ios::in);
-        
+        std::ifstream frame_file(data_path + "/frames/" + std::to_string(fr), std::ios::in);
         mesh.Read(frame_file);
         shader.use();
         shader.setVec3("objectColor", 1.0f, 0.5f, 0.3f);

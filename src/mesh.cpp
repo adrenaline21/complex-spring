@@ -7,58 +7,26 @@
 
 #include "mesh.h"
 
-void Mesh::Init(std::ifstream& fin) {
-    double mass = 1.;
-    fin >> num_frames >> num_vertices;
-    vertices.resize(num_vertices);
-    for (int i = 0; i < num_vertices; i++) {
-        Vertex p;
-        p.index = i;
-        p.m = mass;
-        fin >> p.coord(0) >> p.coord(1);
-        fin >> p.x(0) >> p.x(1) >> p.x(2);
-        p.v = Vec3::Zero();
-        vertices[i] = p;
-    }
-    fin >> num_faces;
-    indices.resize(num_faces * 3);
-    for (int i = 0; i < num_faces * 3; i++) {
-        fin >> indices[i];
-    }
-    num_edges = 0;
+template<class T_VAL>
+void MeshT<T_VAL>::ComputeNormal() {
+    for (auto& vertex : vertices)
+        vertex.n = Vec3T::Zero();
     for (int i = 0; i < num_faces; i++) {
-        int x[3];
-        for (int j = 0; j < 3; j++)
-            x[j] = indices[3 * i + j];
-        for (int j = 0; j < 3; j++) {
-            int x0 = fmin(x[j], x[(j+1)%3]), x1 = fmax(x[j], x[(j+1)%3]);
-            bool found = false;
-            for (int k = 0; k < num_edges; k++)
-                if (x0 == edges[k].x0 && x1 == edges[k].x1) {
-                    found = true;
-                    break;
-                }
-            if (!found) {
-                Edge e;
-                e.x0 = x0; e.x1 = x1; e.len = (vertices[x0].x - vertices[x1].x).norm();
-                edges.push_back(e);
-                num_edges++;
-            }
-        }
+        Vec3T
+            x0 = vertices[indices[3 * i    ]].x,
+            x1 = vertices[indices[3 * i + 1]].x,
+            x2 = vertices[indices[3 * i + 2]].x;
+        Vec3T n = (x1 - x0).cross(x2 - x1);
+        vertices[indices[3 * i    ]].n += n,
+        vertices[indices[3 * i + 1]].n += n,
+        vertices[indices[3 * i + 2]].n += n;
     }
-    std::cout << "Edges:" << num_edges << std::endl;
-    ComputeNormal();
+    for (auto& vertex : vertices)
+        vertex.n.normalize();
 }
 
-void Mesh::Read(std::ifstream& fin) {
-    for (int i = 0; i < num_vertices; i++) {
-        fin >> //vertices[i].index >> 
-            vertices[i].x(0) >> vertices[i].x(1) >> vertices[i].x(2) >>
-            vertices[i].n(0) >> vertices[i].n(1) >> vertices[i].n(2);
-    }
-}
-
-void Mesh::Write(std::ofstream& fout) {
+template<class T_VAL>
+void MeshT<T_VAL>::Write(std::ofstream& fout) {
     for (int i = 0; i < num_vertices; i++) {
         fout << vertices[i].x.transpose() << ' ' << vertices[i].n.transpose() << std::endl;
     }
@@ -71,24 +39,61 @@ void Mesh::Write(std::ofstream& fout) {
     */
 }
 
-void Mesh::ComputeNormal() {
-    for (auto& vertex : vertices)
-        vertex.n = Vec3::Zero();
-    for (int i = 0; i < num_faces; i++) {
-        Vec3 
-            x0 = vertices[indices[3 * i    ]].x,
-            x1 = vertices[indices[3 * i + 1]].x,
-            x2 = vertices[indices[3 * i + 2]].x;
-        Vec3 n = (x1 - x0).cross(x2 - x1);
-        vertices[indices[3 * i    ]].n += n,
-        vertices[indices[3 * i + 1]].n += n,
-        vertices[indices[3 * i + 2]].n += n;
+template<class T_VAL>
+void MeshT<T_VAL>::ExplicitAdvance(double dt, double kStiffness) {
+    for (auto& vertex : vertices) {
+        vertex.x += vertex.v * dt;
+        vertex.f = vertex.m * kG;
     }
-    for (auto& vertex : vertices)
-        vertex.n.normalize();
+    for (const auto& e : edges) {
+        Eigen::Matrix<T_VAL, 3, 1> x01 = vertices[e.x1].x - vertices[e.x0].x;
+        T_VAL len = x01.norm();
+        len = std::sqrt(x01(0) * x01(0) + x01(1) * x01(1) + x01(2) * x01(2));
+        vertices[e.x0].f += kStiffness * (len - e.len) * x01 / len; 
+        vertices[e.x1].f -= kStiffness * (len - e.len) * x01 / len; 
+    }
+    for (auto& vertex : vertices) {
+        vertex.v += vertex.f / vertex.m * dt;
+    }
+    vertices[0].v = Vec3T::Zero(); 
+    vertices[4].v = Vec3T::Zero();
+    ComputeNormal();
 }
 
-void Mesh::SetUpOpenGl() {
+template<class T_VAL>
+double MeshT<T_VAL>::EvalStatic() {
+    double retVal = 0;
+    for (int i = 0; i < num_vertices; i++) {
+        retVal += vertices[i].m * kG.dot(vertices[i].x);
+    }
+    return retVal;
+}
+
+void MeshR::GenerateLossFrame(double kStiffness) {
+    Init();
+    std::ofstream output(path + "/frames/0", std::ios::out);
+    Write(output);
+    output.close();
+    for (int fr = 1; fr <= num_frames; fr++) {
+        ExplicitAdvance(dt, kStiffness);
+        std::ofstream frame_out(path + "/frames/" + std::to_string(fr), std::ios::out);
+        Write(frame_out);
+        if (fr == compared_frame) {
+            std::ofstream loss_frame_out(path + "/loss_frame", std::ios::out);
+            Write(loss_frame_out);
+        }
+    }
+}
+
+void MeshR::Read(std::ifstream& fin) {
+    for (int i = 0; i < num_vertices; i++) {
+        fin >> //vertices[i].index >> 
+            vertices[i].x(0) >> vertices[i].x(1) >> vertices[i].x(2) >>
+            vertices[i].n(0) >> vertices[i].n(1) >> vertices[i].n(2);
+    }
+}
+
+void MeshR::SetUpOpenGl() {
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
     glGenBuffers(1, &EBO);
@@ -103,14 +108,14 @@ void Mesh::SetUpOpenGl() {
     // set the vertex attribute pointers
     // vertex Positions
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, x));
+    glVertexAttribPointer(0, 3, GL_DOUBLE, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, x));
     // vertex normals
     glEnableVertexAttribArray(1);	
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, n));
+    glVertexAttribPointer(1, 3, GL_DOUBLE, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, n));
     glBindVertexArray(0);
 }
 
-void Mesh::Draw() {
+void MeshR::Draw() {
     glBindVertexArray(VAO);
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), &vertices[0], GL_STREAM_DRAW);  
     glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
