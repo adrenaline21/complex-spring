@@ -40,27 +40,6 @@ void MeshT<T_VAL>::Write(std::ofstream& fout) {
 }
 
 template<class T_VAL>
-void MeshT<T_VAL>::ExplicitAdvance(double dt, T_VAL kStiffness) {
-    for (auto& vertex : vertices) {
-        vertex.x += vertex.v * dt;
-        vertex.f = vertex.m * kG;
-    }
-    for (const auto& e : edges) {
-        Eigen::Matrix<T_VAL, 3, 1> x01 = vertices[e.x1].x - vertices[e.x0].x;
-        T_VAL len = x01.norm();
-        len = std::sqrt(x01(0) * x01(0) + x01(1) * x01(1) + x01(2) * x01(2));
-        vertices[e.x0].f += kStiffness * (len - e.len) * x01 / len; 
-        vertices[e.x1].f -= kStiffness * (len - e.len) * x01 / len; 
-    }
-    for (auto& vertex : vertices) {
-        vertex.v += vertex.f / vertex.m * dt;
-    }
-    vertices[0].v = Vec3T::Zero(); 
-    vertices[4].v = Vec3T::Zero();
-    ComputeNormal();
-}
-
-template<class T_VAL>
 double MeshT<T_VAL>::EvalStatic() {
     double retVal = 0;
     for (int i = 0; i < num_vertices; i++) {
@@ -75,7 +54,8 @@ void MeshR::GenerateLossFrame(double kStiffness) {
     Write(output);
     output.close();
     for (int fr = 1; fr <= num_frames; fr++) {
-        ExplicitAdvance(dt, kStiffness);
+        //ExplicitAdvance(kStiffness);
+        ImplicitAdvance(kStiffness);
         std::ofstream frame_out(path + "/frames/" + std::to_string(fr), std::ios::out);
         Write(frame_out);
         if (fr == compared_frame) {

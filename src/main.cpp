@@ -1,7 +1,6 @@
 #include <iostream>
 
 #include "mesh.h"
-#include "CFD.h"
 
 std::string path;
 MeshR meshR;
@@ -14,8 +13,9 @@ int main(int argc, char *argv[]) {
     meshR.GenerateLossFrame(5);
     std::cout << meshR.EvalLossSameFrame(4) << std::endl;
     std::cout << (meshR.EvalLossSameFrame(4.01) - meshR.EvalLossSameFrame(3.99)) / 0.02 << std::endl;
+    //meshC.EvalGradient(1);
     std::cout << std::imag(meshC.EvalLossSameFrame(std::complex<double>(4, 0.01))) / 0.01<< std::endl;
-    
+    /*
     double step = 1e-4, x = 4;
     double lx, lx_pos, lx_neg, grad, hess;
     int ite = 0;
@@ -30,5 +30,6 @@ int main(int argc, char *argv[]) {
         std::cout << imag(meshC.EvalLossSameFrame(std::complex<double>(x, 0.01))) / 0.01 << std::endl;
         x -= lx / grad;
     } while (fabs(grad) > 1e-4 && ite < 10);
+    */
 }
     
