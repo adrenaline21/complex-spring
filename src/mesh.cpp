@@ -40,7 +40,7 @@ void MeshT<T_VAL>::Write(std::ofstream& fout) {
 }
 
 template<class T_VAL>
-void MeshT<T_VAL>::ExplicitAdvance(double dt, double kStiffness) {
+void MeshT<T_VAL>::ExplicitAdvance(double dt, T_VAL kStiffness) {
     for (auto& vertex : vertices) {
         vertex.x += vertex.v * dt;
         vertex.f = vertex.m * kG;
@@ -64,7 +64,7 @@ template<class T_VAL>
 double MeshT<T_VAL>::EvalStatic() {
     double retVal = 0;
     for (int i = 0; i < num_vertices; i++) {
-        retVal += vertices[i].m * kG.dot(vertices[i].x);
+        retVal += 0;//vertices[i].m * kG.dot(vertices[i].x);
     }
     return retVal;
 }

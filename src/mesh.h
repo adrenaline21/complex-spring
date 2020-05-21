@@ -17,7 +17,7 @@
 template<class T_VAL = double>
 struct VertexT {
     int index;
-    double m;
+    T_VAL m;
     Eigen::Vector2i coord;
     Eigen::Matrix<T_VAL, 3, 1> x, v, n, f;
 };
@@ -52,7 +52,9 @@ struct MeshT {
     double EvalStatic();
 };
 
+template struct MeshT<std::complex<double>>;
 using MeshC = MeshT<std::complex<double>>;
+
 struct MeshR : MeshT<double> {
     using Vertex = VertexT<double>;
 
@@ -115,7 +117,7 @@ void MeshT<T_VAL>::Init() {
 }
 
 template<class T_VAL>
-T_VAL MeshT<T_VAL>::EvalLossSameFrame(double kStiffness) {
+T_VAL MeshT<T_VAL>::EvalLossSameFrame(T_VAL kStiffness) {
     T_VAL retVal = 0;
     Init();
     for (int fr = 1; fr <= compared_frame; fr++)
