@@ -8,6 +8,9 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <Eigen/Sparse>
+#include <Eigen/IterativeLinearSolvers>
+
 #include <fstream>
 #include <iostream>
 #include <complex>
@@ -34,6 +37,7 @@ template<class T_VAL>
 struct MeshT {
     using Vec3T = Eigen::Matrix<T_VAL, 3, 1>;
     using VecXT = Eigen::Matrix<T_VAL, Eigen::Dynamic, 1>;
+    using SparseT = Eigen::SparseMatrix<T_VAL>;
     std::string path;
     Vec3T kG = Vec3T(0, 0, -1);
     double dt = 0.05;
@@ -51,7 +55,8 @@ struct MeshT {
     void ExplicitAdvance(T_VAL kStiffness);
 
     void EvalGradient(T_VAL kStiffness, VecXT& grad, const VecXT& X, const VecXT& y);
-    double EvalObjective(T_VAL kStiffness, const VecXT& X, const VecXT& y);
+    void EvalHessian(T_VAL kStiffness, Eigen::SparseMatrix<T_VAL>& hessian, const VecXT& X, const VecXT& y);
+    T_VAL EvalObjective(T_VAL kStiffness, const VecXT& X, const VecXT& y);
     void Descent(T_VAL kStiffness, VecXT&);
     void ImplicitAdvance(T_VAL kStiffness);
 
@@ -59,8 +64,8 @@ struct MeshT {
     double EvalStatic();
 };
 
-template struct MeshT<std::complex<double>>;
-using MeshC = MeshT<std::complex<double>>;
+template struct MeshT<Complexd>;
+using MeshC = MeshT<Complexd>;
 
 struct MeshR : MeshT<double> {
     using Vertex = VertexT<double>;
@@ -130,7 +135,7 @@ void MeshT<T_VAL>::ExplicitAdvance(T_VAL kStiffness) {
         vertex.f = vertex.m * kG;
     }
     for (const auto& e : edges) {
-        Eigen::Matrix<T_VAL, 3, 1> x01 = vertices[e.x1].x - vertices[e.x0].x;
+        Vec3T x01 = vertices[e.x1].x - vertices[e.x0].x;
         T_VAL len = std::sqrt(x01(0) * x01(0) + x01(1) * x01(1) + x01(2) * x01(2));
         vertices[e.x0].f += kStiffness * (len - e.len) * x01 / len; 
         vertices[e.x1].f -= kStiffness * (len - e.len) * x01 / len; 
@@ -148,7 +153,7 @@ T_VAL MeshT<T_VAL>::EvalLossSameFrame(T_VAL kStiffness) {
     T_VAL retVal = 0;
     Init();
     for (int fr = 1; fr <= compared_frame; fr++)
-        ExplicitAdvance(kStiffness);
+        ImplicitAdvance(kStiffness);
     std::ofstream test_eval(path + "/test_eval", std::ios::out);
     Write(test_eval);
     std::ifstream loss_frame_file(path + "/loss_frame", std::ios::in);
@@ -168,6 +173,8 @@ T_VAL MeshT<T_VAL>::EvalLossSameFrame(T_VAL kStiffness) {
 template<class T_VAL>
 void MeshT<T_VAL>::EvalGradient(T_VAL kStiffness, VecXT& grad, const VecXT& X, const VecXT& y) {
     int N = num_vertices;
+    grad.resize(3 * N);
+    grad.setZero();
     Array<Vec3T> f, x;
     // Grad E(x)
     f.resize(N);    x.resize(N);
@@ -195,7 +202,76 @@ void MeshT<T_VAL>::EvalGradient(T_VAL kStiffness, VecXT& grad, const VecXT& X, c
 }
 
 template<class T_VAL>
-double MeshT<T_VAL>::EvalObjective(T_VAL kStiffness, const VecXT& X, const VecXT& y) {
+void MeshT<T_VAL>::EvalHessian(T_VAL kStiffness, SparseT& hessian, const VecXT& x, const VecXT& y) {
+    int N = num_vertices;
+    using Trip = Eigen::Triplet<T_VAL>;
+    std::vector<Trip> coefficients;
+    coefficients.clear();
+    hessian.resize(3 * N, 3 * N);
+    hessian.setZero();
+    
+    for (const auto& e : edges) {
+        int x1 = e.x0, x2 = e.x1;
+        Vec3T x12 = vertices[x2].x - vertices[x1].x;
+        T_VAL lenSquared = x12(0) * x12(0) + x12(1) * x12(1) + x12(2) * x12(2), len = std::sqrt(lenSquared);
+        T_VAL c1 = kStiffness * (1. - e.len / len), c2 = kStiffness * (e.len / len) / lenSquared;
+        for (int i = 0; i < 3; i++)
+            for (int j = 0; j < 3; j++) {
+                T_VAL val = c2 * x12(i) * x12(j);
+                if (i == j)
+                    val += c1;
+                coefficients.push_back(Trip(3 * x1 + i, 3 * x1 + j, val));
+                coefficients.push_back(Trip(3 * x1 + i, 3 * x2 + j, -val));
+                coefficients.push_back(Trip(3 * x2 + i, 3 * x1 + j, -val));
+                coefficients.push_back(Trip(3 * x2 + i, 3 * x2 + j, val));
+                //if (3 * x1 + i == 0 && 3 * x2 + j == 17)
+                    //std::cout << e.len / len << ' ' << lenSquared << ' ' << val << std::endl;
+            }
+        //if (x1 == 0 && x2 == 5)
+            //std::cout << x12.transpose() << std::endl;
+    }
+    for (int i = 0; i < N; i++)
+        for (int j = 0; j < 3; j++)
+            coefficients.push_back(Trip(3 * i + j, 3 * i + j, vertices[i].m / (dt * dt)));
+    hessian.setFromTriplets(coefficients.begin(), coefficients.end());
+
+    /*
+    for (uint index = 0; index < edges.size(); index ++) {
+        Edge e = edges[index];
+        T_VAL step = 1e-4;
+        for (int x1 = e.x0; x1 != e.x1; x1 = e.x1)
+            for (int x2 = e.x0; x2 != e.x1; x2 = e.x1)
+                for (int i = 0; i < 3; i++)
+                    for (int j = 0; j < 3; j++) {
+        */
+        /*    
+        for (int xi = 0; xi < 3 * N; xi++)
+            for (int xj = 0; xj < 3 * N; xj++) {
+                //int xi = 3 * x1 + i, xj = 3 * x2 + j;
+                //std::cout << x1 << ' ' << x2 << ' ' << i << ' ' << j << ':';
+                T_VAL step = 1e-4;
+                VecXT xpp = x, xpn = x, xnp = x, xnn = x; 
+                xpp(xi) += step; xpp(xj) += step;
+                xpn(xi) += step; xpn(xj) -= step;
+                xnp(xi) -= step; xnp(xj) += step;
+                xnn(xi) -= step; xnn(xj) -= step;
+                T_VAL opp = EvalObjective(kStiffness, xpp, y), onp = EvalObjective(kStiffness, xnp, y);
+                T_VAL opn = EvalObjective(kStiffness, xpn, y), onn = EvalObjective(kStiffness, xnn, y);
+                T_VAL gradp = (opp - onp) / (2. * step);
+                T_VAL gradn = (opn - onn) / (2. * step);
+                //std::cout << gradp << ' ' << gradn << std::endl;
+                T_VAL hess = (gradp - gradn) / (2. * step);
+                if (hessian.coeffRef(xi, xj) != 0.) {
+                    std::cout << xi << ' ' << xj << ' ' << hessian.coeffRef(xi, xj) << ' ';
+                    std::cout << hess << "      ";
+                }
+            }
+        std::cout << std::endl;
+        */
+}
+
+template<class T_VAL>
+T_VAL MeshT<T_VAL>::EvalObjective(T_VAL kStiffness, const VecXT& X, const VecXT& y) {
     int N = num_vertices;
     T_VAL retVal = 0;
     Array<Vec3T> x;
@@ -218,7 +294,7 @@ double MeshT<T_VAL>::EvalObjective(T_VAL kStiffness, const VecXT& X, const VecXT
             retVal += k * v * v;
         }
     }
-    return std::real(retVal);
+    return retVal;
 }
 
 template<class T_VAL>
@@ -238,38 +314,64 @@ void MeshT<T_VAL>::Descent(T_VAL kStiffness, VecXT& x) {
     }
     x = y;
     VecXT grad;
-    grad.resize(3 * N);
-    grad.setZero();
-    /*
+    
+    
     EvalGradient(kStiffness, grad, x, y);
+    
+    /*
     std::cout << grad.transpose() << std::endl;
-    for (int i = 0; i < 3 * N; i++) {
-        VecXT xp = x, xn = x; xp(i) = x(i) + 1e-4; xn(i) = x(i) - 1e-4;
-        std::cout << (EvalObjective(kStiffness, xp, y) - EvalObjective(kStiffness, xn, y)) / 2e-4 << ' ';
+    for (int i = 0; i < 1; i++) {
+        double step = 1e-4;
+        VecXT xp = x, xn = x; xp(i) = x(i) + step; xn(i) = x(i) - step;
+        std::cout << (EvalObjective(kStiffness, xp, y) - EvalObjective(kStiffness, xn, y)) / (2. * step) << ' ';
     }
-    std::cout << std::endl;
     */
     
+    Eigen::SparseMatrix<T_VAL> hessian;    
+    EvalHessian(kStiffness, hessian, x, y);
+
     int ite = 0;
     double kB = 0.5, kY = 0.03;
     //VecXT new_grad; new_grad.resize(3 * N);
+    
     for (; ite < 10; ite++) {
-        double obj = EvalObjective(kStiffness, x, y);
+        double obj = std::real(EvalObjective(kStiffness, x, y));
         EvalGradient(kStiffness, grad, x, y);
         double norm = grad.norm();
-        std::cout << obj << ' ' << norm << "    ";
         if (norm < 1e-4)
             break;
+                
+        EvalHessian(kStiffness, hessian, x, y);
+        VecXT delta;
+        Eigen::ConjugateGradient<Eigen::SparseMatrix<T_VAL>> solver;
+        solver.compute(hessian);
+        if (solver.info() != Eigen::Success) {
+            std::cout << "Decomposition failed!" << std::endl;
+        }
+        delta = solver.solve(grad);
+        if (solver.info() != Eigen::Success) {
+            std::cout << "Solve failed!" << std::endl;
+        }
+        
+        //VecXT new_grad;
+        //EvalGradient(kStiffness, new_grad, x - delta, y);
+        //std::cout << grad.transpose() << std::endl;
+        //std::cout << new_grad.transpose() << std::endl;
+        //std::cout << obj << ' ' << norm << "    ";
+        //std::cout << obj << ' ' << EvalObjective(kStiffness, x - delta, y) << ' ' << EvalObjective(kStiffness, x - grad, y) << "    ";
+
         double kA = 1./kB; VecXT xTemp = x;
         do {
             kA *= kB;
-            xTemp = x - kA * grad;
+            xTemp = x - kA * delta;
             //EvalGradient(kStiffness, new_grad, xTemp, y);
-            //std::cout << evalObjective(xTemp, y) << ' ';
-        } while (EvalObjective(kStiffness, xTemp, y) > obj - kY * kA * norm * norm);
+            //std::cout << EvalObjective(kStiffness, xTemp, y) << ' ';
+        } while (std::real(EvalObjective(kStiffness, xTemp, y)) > std::real(obj - kY * kA * grad.dot(delta)));
+        //std::cout << kA << ' ';
+        //} while (new_grad.norm() > 1e-4);
         x = xTemp;
     }
-    std::cout << std::endl;
+    //std::cout << ite << std::endl;
 }
 
 template<class T_VAL>

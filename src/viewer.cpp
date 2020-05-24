@@ -191,7 +191,7 @@ int main(int argc, char *argv[]) {
         Move();
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);		
+        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);		
 
         int fr = int(frame);
         std::ifstream frame_file(data_path + "/frames/" + std::to_string(fr), std::ios::in);
