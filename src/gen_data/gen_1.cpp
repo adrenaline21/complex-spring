@@ -11,7 +11,7 @@ int N = 5;
 int main(int argc, char *argv[]) {
     std::string path = std::string(argv[1]) + "/mesh_init";
     std::ofstream fout(path, std::ios::out);
-    fout << 1000 << std::endl << N * N << std::endl;
+    fout << 200 << std::endl << N * N << std::endl;
     for (int i = 0; i < N; i++)
         for (int j = 0; j < N; j++) {
             fout << i << ' ' << j << ' ';

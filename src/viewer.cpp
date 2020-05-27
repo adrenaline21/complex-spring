@@ -49,7 +49,10 @@ void InitViewer() {
     double xspan = xmax - xmin;
     sum /= mesh.vertices.size();
     center = glm::vec3(sum(0), sum(1), sum(2));
-    init_position = Z * float(xspan / 2.);
+    //init_position = glm::vec3(2,0,-2) * float(xspan / 2.);
+    init_position = glm::vec3(6.41,0,-7.52);
+    front = glm::vec3(-1,0,0);
+    up = glm::vec3(0,0,1);
     position = init_position;
 }
 
@@ -94,7 +97,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 }
 
 void scroll_callback(GLFWwindow* window, double x, double y) {
-    position.z -= y;
+    position += float(y) * front;
 }
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
@@ -217,6 +220,8 @@ int main(int argc, char *argv[]) {
             if (frame >= mesh.num_frames)
                 frame -= mesh.num_frames;
         }
+        frame = 100;
+        //std::cout << position.x << ' ' << position.y << ' ' << position.z << std::endl;
     }
 
 	glfwDestroyWindow(window);

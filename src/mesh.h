@@ -343,7 +343,8 @@ void MeshT<T_VAL>::Descent(T_VAL kStiffness, VecXT& x) {
                 
         EvalHessian(kStiffness, hessian, x, y);
         VecXT delta;
-        Eigen::ConjugateGradient<Eigen::SparseMatrix<T_VAL>> solver;
+        Eigen::ConjugateGradient<Eigen::SparseMatrix<T_VAL>, Eigen::Upper|Eigen::Lower> solver;
+        //Eigen::SparseLU<Eigen::SparseMatrix<T_VAL>> solver;
         solver.compute(hessian);
         if (solver.info() != Eigen::Success) {
             std::cout << "Decomposition failed!" << std::endl;
