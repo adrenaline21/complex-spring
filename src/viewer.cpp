@@ -220,7 +220,7 @@ int main(int argc, char *argv[]) {
             if (frame >= mesh.num_frames)
                 frame -= mesh.num_frames;
         }
-        frame = 100;
+        //frame = 100;
         //std::cout << position.x << ' ' << position.y << ' ' << position.z << std::endl;
     }
 

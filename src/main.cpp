@@ -18,15 +18,18 @@ int main(int argc, char *argv[]) {
     meshR.GenerateLossFrame(5);
     
     /*
-    double base = meshR.EvalLossSameFrame(2.);
+    double x0 = 5, Lp;
+    double base = meshR.EvalLossSameFrame(x0);
     for (int i = 1; i <= 20; i++) {
         double step = pow(0.1, i);
-        std::cout << step << std::fixed << std::endl;
-        double basep = meshR.EvalLossSameFrame(2. + step), basen = meshR.EvalLossSameFrame(2. - step);
+        std::cout << "Step:" << i << std::fixed << std::endl;
+        double basep = meshR.EvalLossSameFrame(x0 + step), basen = meshR.EvalLossSameFrame(x0 - step);
         std::cout << (basep - base) / step << std::endl;
         std::cout << (basep - basen) / (2. * step) << std::endl;
-        std::cout << std::imag(meshC.EvalLossSameFrame(Complexd(2., step))) / step << std::endl;
+        Lp = std::imag(meshC.EvalLossSameFrame(Complexd(x0, step))) / step;
+        std::cout << Lp << std::endl;
     }
+    std::cout << base << ' ' << meshR.EvalLossSameFrame(x0 + 1e-10) << std::endl;
     */
 
     /*

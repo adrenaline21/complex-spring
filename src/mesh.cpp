@@ -25,10 +25,15 @@ void MeshT<T_VAL>::ComputeNormal() {
         vertex.n.normalize();
 }
 
-template<class T_VAL>
-void MeshT<T_VAL>::Write(std::ofstream& fout) {
+void MeshR::Write(std::ofstream& fout) {
+    //fout.precision(15);
     for (int i = 0; i < num_vertices; i++) {
-        fout << vertices[i].x.transpose() << ' ' << vertices[i].n.transpose() << std::endl;
+        fout.write((char*)&vertices[i].x(0),sizeof(double));
+        fout.write((char*)&vertices[i].x(1),sizeof(double));
+        fout.write((char*)&vertices[i].x(2),sizeof(double));
+        fout.write((char*)&vertices[i].n(0),sizeof(double));
+        fout.write((char*)&vertices[i].n(1),sizeof(double));
+        fout.write((char*)&vertices[i].n(2),sizeof(double));
     }
     // The faces don't change for now.
     /*
@@ -59,17 +64,21 @@ void MeshR::GenerateLossFrame(double kStiffness) {
         std::ofstream frame_out(path + "/frames/" + std::to_string(fr), std::ios::out);
         Write(frame_out);
         if (fr == compared_frame) {
-            std::ofstream loss_frame_out(path + "/loss_frame", std::ios::out);
+            std::ofstream loss_frame_out(path + "/loss_frame", std::ios::out|std::ios::binary);
             Write(loss_frame_out);
         }
     }
 }
 
 void MeshR::Read(std::ifstream& fin) {
+    double buf[6];
     for (int i = 0; i < num_vertices; i++) {
-        fin >> //vertices[i].index >> 
-            vertices[i].x(0) >> vertices[i].x(1) >> vertices[i].x(2) >>
-            vertices[i].n(0) >> vertices[i].n(1) >> vertices[i].n(2);
+        fin.read((char*)buf, sizeof(buf));
+        vertices[i].x = Vec3T(buf[0], buf[1], buf[2]);
+        vertices[i].n = Vec3T(buf[3], buf[4], buf[5]);
+        //fin >> //vertices[i].index >> 
+            //vertices[i].x(0) >> vertices[i].x(1) >> vertices[i].x(2) >>
+            //vertices[i].n(0) >> vertices[i].n(1) >> vertices[i].n(2);
     }
 }
 

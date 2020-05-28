@@ -49,7 +49,6 @@ struct MeshT {
     
     void Init();
     void ComputeNormal();
-    void Write(std::ofstream&);
 
     int compared_frame = 100;
     void ExplicitAdvance(T_VAL kStiffness);
@@ -72,6 +71,7 @@ struct MeshR : MeshT<double> {
 
     void Read(std::ifstream&);
     void GenerateLossFrame(double kStiffness);
+    void Write(std::ofstream&);
 
     uint VAO, VBO, EBO;
     void SetUpOpenGl();
@@ -154,16 +154,24 @@ T_VAL MeshT<T_VAL>::EvalLossSameFrame(T_VAL kStiffness) {
     Init();
     for (int fr = 1; fr <= compared_frame; fr++)
         ImplicitAdvance(kStiffness);
-    std::ofstream test_eval(path + "/test_eval", std::ios::out);
-    Write(test_eval);
-    std::ifstream loss_frame_file(path + "/loss_frame", std::ios::in);
-    double x, y, z, tmp;
+    //std::ofstream test_eval(path + "/test_eval", std::ios::out);
+    //Write(test_eval);
+    std::ifstream loss_frame_file(path + "/loss_frame", std::ios::binary);
+    //double x, y, z, tmp;
+    double buf[6];
     for (int i = 0; i < num_vertices; i++) {
+        /*
         loss_frame_file >> x >> y >> z >> tmp >> tmp >> tmp;
         retVal += 
             (vertices[i].x(0) - x) * (vertices[i].x(0) - x) +
             (vertices[i].x(1) - y) * (vertices[i].x(1) - y) +
             (vertices[i].x(2) - z) * (vertices[i].x(2) - z);
+        */
+        loss_frame_file.read((char*)buf, sizeof(buf));
+        retVal += 
+            (vertices[i].x(0) - buf[0]) * (vertices[i].x(0) - buf[0]) +
+            (vertices[i].x(1) - buf[1]) * (vertices[i].x(1) - buf[1]) +
+            (vertices[i].x(2) - buf[2]) * (vertices[i].x(2) - buf[2]);
     }
     loss_frame_file.close();
     return retVal;
@@ -294,7 +302,7 @@ T_VAL MeshT<T_VAL>::EvalObjective(T_VAL kStiffness, const VecXT& X, const VecXT&
             retVal += k * v * v;
         }
     }
-    return retVal;
+    return retVal + 1.;
 }
 
 template<class T_VAL>
