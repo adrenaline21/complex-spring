@@ -8,3 +8,5 @@ Use the left mouse button to rotate and the right mouse button to translate. Scr
 ### Acknowledgements
 
 Part of the viewer's code is from https://github.com/JoeyDeVries/LearnOpenGL.
+
+install libglfw3-dev libglew-dev libglm-dev
